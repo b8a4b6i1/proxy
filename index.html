@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>///</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --black: #000000;
+    --white: #e0e0e0;
+    --cyan: #00d4ff;
+    --red: #ff2040;
+    --yellow: #e8d44d;
+    --dim: #333;
+    --glow: rgba(0, 212, 255, 0.15);
+  }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* === CUSTOM CURSOR (desktop) === */
+  @media (pointer: fine) {
+    body, input, button { cursor: none !important; }
+    .cursor-dot {
+      position: fixed; width: 8px; height: 8px;
+      background: var(--cyan); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      mix-blend-mode: screen; opacity: 0.8;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-ring {
+      position: fixed; width: 32px; height: 32px;
+      border: 1px solid rgba(0,212,255,0.3); border-radius: 50%;
+      pointer-events: none; z-index: 9998;
+      transition: width 0.2s, height 0.2s, border-color 0.2s;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-ring.hover { width: 48px; height: 48px; border-color: var(--cyan); }
+  }
+  @media (pointer: coarse) { .cursor-dot, .cursor-ring { display: none; } }
+
+  /* === FULLSCREEN PROXY BACKGROUND === */
+  .proxy-bg {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 110vmax;
+    height: 110vmax;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 1;
+    will-change: transform;
+    transition: transform 0.3s ease-out;
+  }
+  .proxy-bg img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: contrast(1.2) brightness(0.8);
+  }
+
+  /* === PROXY FOREGROUND (breathing) === */
+  .proxy-fg {
+    position: relative;
+    width: clamp(240px, 65vw, 360px);
+    height: clamp(240px, 65vw, 360px);
+    z-index: 10;
+    animation: breathe 6s ease-in-out infinite;
+    will-change: transform;
+    transition: transform 0.15s ease-out;
+  }
+  .proxy-fg img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: contrast(1.1) brightness(0.95);
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50% { transform: scale(1.02) translateY(-4px); }
+  }
+
+  /* Scan line on foreground proxy */
+  .proxy-fg::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(transparent 0%, rgba(0,212,255,0.03) 50%, transparent 100%);
+    animation: scanMove 4s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes scanMove {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+
+  /* === PARTICLE CANVAS === */
+  #particleCanvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2; pointer-events: none;
+  }
+
+  /* === DISINTEGRATION CANVAS === */
+  #disintCanvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 101; pointer-events: none;
+  }
+
+  /* Scan lines overlay */
+  .scanlines {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
+    pointer-events: none; z-index: 102;
+  }
+
+  /* === LOGIN CONTAINER === */
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(20px, 4vh, 36px);
+    padding: clamp(12px, 3vw, 24px);
+    position: relative;
+    z-index: 10;
+    transition: opacity 0.5s;
+    width: 100%;
+  }
+  .container.hidden { opacity: 0; pointer-events: none; position: absolute; }
+
+  /* === INPUT AREA === */
+  .input-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(12px, 3vh, 20px);
+  }
+
+  .field-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .prefix {
+    background: var(--dim);
+    color: var(--cyan);
+    padding: clamp(12px, 3vw, 16px) clamp(10px, 2.5vw, 14px);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(14px, 4vw, 17px);
+    border: 1px solid #444;
+    border-right: none;
+    letter-spacing: 1px;
+    user-select: none;
+  }
+
+  input[type="text"] {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #444;
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(16px, 4.5vw, 19px);
+    padding: clamp(12px, 3vw, 16px);
+    width: clamp(220px, 60vw, 300px);
+    letter-spacing: 3px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    -webkit-appearance: none;
+    border-radius: 0;
+    touch-action: manipulation;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px var(--glow), inset 0 0 10px var(--glow);
+  }
+
+  input[type="text"]::placeholder {
+    color: #444;
+    letter-spacing: 5px;
+    font-size: clamp(10px, 3vw, 13px);
+  }
+
+  /* === REACTIVE BUTTON === */
+  .btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #444;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(12px, 3.5vw, 14px);
+    padding: clamp(10px, 2.5vw, 14px) clamp(28px, 8vw, 44px);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    transition: all 0.3s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 20px var(--glow);
+    text-shadow: 0 0 10px var(--cyan);
+  }
+
+  .btn-letter {
+    display: inline-block;
+    transition: transform 0.15s, color 0.15s;
+  }
+
+  .btn:hover .btn-letter {
+    animation: letterFloat 0.4s ease infinite;
+  }
+  .btn:hover .btn-letter:nth-child(2) { animation-delay: 0.04s; }
+  .btn:hover .btn-letter:nth-child(3) { animation-delay: 0.08s; }
+  .btn:hover .btn-letter:nth-child(4) { animation-delay: 0.12s; }
+  .btn:hover .btn-letter:nth-child(5) { animation-delay: 0.16s; }
+  .btn:hover .btn-letter:nth-child(6) { animation-delay: 0.2s; }
+
+  @keyframes letterFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* === ERROR === */
+  .error input[type="text"] {
+    border-color: var(--red);
+    box-shadow: 0 0 15px rgba(255,32,64,0.25);
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  .msg {
+    font-size: clamp(10px, 2.8vw, 12px);
+    letter-spacing: 2px;
+    height: 18px;
+    color: transparent;
+    transition: color 0.3s;
+  }
+  .msg.visible { color: var(--red); }
+
+  /* === TRANSITION === */
+  .transition-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: var(--black);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .transition-overlay.active { opacity: 1; pointer-events: all; }
+  .transition-overlay.glitching { animation: screenGlitch 0.7s steps(1) forwards; }
+
+  @keyframes screenGlitch {
+    0%   { background: var(--black); }
+    8%   { background: var(--cyan); }
+    10%  { background: var(--black); }
+    18%  { background: var(--red); }
+    20%  { background: var(--black); }
+    30%  { transform: skewX(-3deg); }
+    32%  { transform: skewX(0); }
+    45%  { background: rgba(0,212,255,0.08); }
+    50%  { background: var(--black); }
+    65%  { transform: translateX(-4px); }
+    67%  { transform: translateX(0); }
+    80%  { background: rgba(255,32,64,0.05); }
+    85%  { background: var(--black); }
+    100% { background: var(--black); }
+  }
+
+  .transition-text {
+    font-size: clamp(20px, 7vw, 36px);
+    letter-spacing: clamp(6px, 3vw, 14px);
+    color: var(--cyan);
+    text-shadow: 0 0 30px var(--cyan), 0 0 60px rgba(0,212,255,0.3);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .transition-text.show {
+    opacity: 1;
+    animation: textPulse 1.5s ease forwards;
+  }
+
+  @keyframes textPulse {
+    0%   { letter-spacing: clamp(6px, 3vw, 14px); opacity: 1; }
+    50%  { letter-spacing: clamp(12px, 6vw, 28px); text-shadow: 0 0 40px var(--cyan), 0 0 80px var(--cyan); }
+    100% { letter-spacing: clamp(6px, 3vw, 14px); text-shadow: 0 0 20px var(--cyan); }
+  }
+
+  .glitch-bar {
+    position: absolute; height: 2px;
+    background: var(--cyan); opacity: 0;
+    pointer-events: none;
+  }
+
+  /* === VIDEO === */
+  .video-container {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 50; opacity: 0; pointer-events: none;
+    transition: opacity 0.8s;
+    padding: 20px;
+  }
+  .video-container.active { opacity: 1; pointer-events: all; }
+
+  .video-wrap {
+    width: 100%; max-width: 800px;
+    border: 1px solid #222;
+    box-shadow: 0 0 60px rgba(0,212,255,0.06);
+    overflow: hidden; background: #000;
+  }
+  .video-wrap video { width: 100%; height: auto; display: block; }
+
+  .video-label {
+    font-size: clamp(8px, 2.5vw, 11px);
+    letter-spacing: clamp(2px, 0.8vw, 4px);
+    color: #222; margin-top: clamp(10px, 2vh, 20px);
+    text-transform: uppercase;
+  }
+
+  /* === AUDIO PROMPT === */
+  .audio-prompt {
+    position: fixed; bottom: 20px; right: 20px;
+    font-size: 9px; letter-spacing: 2px;
+    color: #333; z-index: 150;
+    transition: opacity 0.5s;
+    text-transform: uppercase;
+  }
+  .audio-prompt.hidden { opacity: 0; pointer-events: none; }
+
+  /* === CORNERS === */
+  .corner {
+    position: fixed; font-size: 10px;
+    color: #1a1a1a; letter-spacing: 1px;
+    line-height: 1.4; pointer-events: none; z-index: 5;
+  }
+  .corner.tl { top: 20px; left: 20px; }
+  .corner.tr { top: 20px; right: 20px; text-align: right; }
+  .corner.bl { bottom: 20px; left: 20px; }
+  .corner.br { bottom: 20px; right: 20px; text-align: right; }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 480px) {
+    .corner { display: none; }
+    .video-container { padding: 0; }
+    .video-wrap { border: none; box-shadow: none; }
+    .audio-prompt { bottom: 10px; right: 10px; font-size: 8px; }
+  }
+
+  @media (max-height: 500px) and (orientation: landscape) {
+    .container { flex-direction: row; gap: 32px; }
+    .proxy-fg { width: 35vh; height: 35vh; flex-shrink: 0; }
+    .input-area { align-items: flex-start; }
+    .video-container { padding: 8px; }
+    .video-wrap { max-width: 90vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div class="cursor-dot" id="cursorDot"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Fullscreen Proxy background (parallax layer) -->
+<div class="proxy-bg" id="proxyBg">
+  <img src="proxy.png" alt="" draggable="false">
+</div>
+
+<!-- Particles -->
+<canvas id="particleCanvas"></canvas>
+
+<!-- Disintegration particles -->
+<canvas id="disintCanvas"></canvas>
+
+<!-- Scan lines -->
+<div class="scanlines"></div>
+
+<!-- Corners -->
+<div class="corner tl">╔══<br>║&nbsp;&nbsp;</div>
+<div class="corner tr">══╗<br>&nbsp;&nbsp;║</div>
+<div class="corner bl">║&nbsp;&nbsp;<br>╚══</div>
+<div class="corner br">&nbsp;&nbsp;║<br>══╝</div>
+
+<!-- Audio prompt -->
+<div class="audio-prompt" id="audioPrompt">sonido: click para activar</div>
+
+<!-- LOGIN -->
+<div class="container" id="loginContainer">
+  <div class="proxy-fg" id="proxyFg">
+    <img src="proxy.png" alt="" draggable="false">
+  </div>
+
+  <div class="input-area" id="inputArea">
+    <div class="field-wrap">
+      <span class="prefix">&gt;_</span>
+      <input type="text" id="passInput" placeholder="· · · · · · ·" maxlength="12" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="btn" id="submitBtn">
+      <span class="btn-letter">E</span><span class="btn-letter">N</span><span class="btn-letter">T</span><span class="btn-letter">R</span><span class="btn-letter">A</span><span class="btn-letter">R</span>
+    </button>
+    <div class="msg" id="msg">acceso denegado</div>
+  </div>
+</div>
+
+<!-- TRANSITION -->
+<div class="transition-overlay" id="transitionOverlay">
+  <div class="transition-text" id="transitionText">FORTUNA</div>
+</div>
+
+<!-- VIDEO -->
+<div class="video-container" id="videoContainer">
+  <div class="video-wrap">
+    <video id="videoPlayer" controls playsinline preload="none">
+      <source src="video.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="video-label">jirafa ardiendo · última versión del mundo</div>
+</div>
+
+<script>
+  const PASSWORD = 'FORTUNA';
+
+  const input = document.getElementById('passInput');
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('msg');
+  const inputArea = document.getElementById('inputArea');
+  const loginContainer = document.getElementById('loginContainer');
+  const transitionOverlay = document.getElementById('transitionOverlay');
+  const transitionText = document.getElementById('transitionText');
+  const videoContainer = document.getElementById('videoContainer');
+  const videoPlayer = document.getElementById('videoPlayer');
+  const proxyBg = document.getElementById('proxyBg');
+  const proxyFg = document.getElementById('proxyFg');
+  const cursorDot = document.getElementById('cursorDot');
+  const cursorRing = document.getElementById('cursorRing');
+  const audioPrompt = document.getElementById('audioPrompt');
+
+  let attempts = 0;
+  const isFine = window.matchMedia('(pointer: fine)').matches;
+
+  // ============================
+  // AUDIO
+  // ============================
+  const audio = new Audio('drone.mp3');
+  audio.loop = true;
+  audio.volume = 0.15;
+  let audioStarted = false;
+
+  function startAudio() {
+    if (audioStarted) return;
+    audio.play().then(() => {
+      audioStarted = true;
+      audioPrompt.classList.add('hidden');
+    }).catch(() => {});
+  }
+
+  document.addEventListener('click', startAudio, { once: false });
+  document.addEventListener('touchstart', startAudio, { once: false });
+  document.addEventListener('keydown', startAudio, { once: false });
+
+  // ============================
+  // CUSTOM CURSOR
+  // ============================
+  if (isFine) {
+    let mx = -100, my = -100, ringX = -100, ringY = -100;
+    document.addEventListener('mousemove', (e) => {
+      mx = e.clientX; my = e.clientY;
+      cursorDot.style.left = mx + 'px';
+      cursorDot.style.top = my + 'px';
+    });
+    (function animRing() {
+      ringX += (mx - ringX) * 0.12;
+      ringY += (my - ringY) * 0.12;
+      cursorRing.style.left = ringX + 'px';
+      cursorRing.style.top = ringY + 'px';
+      requestAnimationFrame(animRing);
+    })();
+    document.querySelectorAll('button, input').forEach(el => {
+      el.addEventListener('mouseenter', () => cursorRing.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cursorRing.classList.remove('hover'));
+    });
+  }
+
+  // ============================
+  // PARALLAX (background + foreground)
+  // ============================
+  if (isFine) {
+    document.addEventListener('mousemove', (e) => {
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+      const dx = (e.clientX - cx) / cx, dy = (e.clientY - cy) / cy;
+      // Background moves opposite, slow
+      proxyBg.style.transform = `translate(calc(-50% + ${-dx * 15}px), calc(-50% + ${-dy * 15}px))`;
+      // Foreground moves with, faster — added to breathing animation
+      proxyFg.style.transform = `translate(${dx * 8}px, ${dy * 8}px) rotateY(${dx * 4}deg) rotateX(${-dy * 4}deg)`;
+    });
+  }
+
+  // Gyroscope (mobile)
+  if ('DeviceOrientationEvent' in window) {
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.gamma === null) return;
+      const tx = Math.max(-25, Math.min(25, e.gamma)) / 25;
+      const ty = Math.max(-25, Math.min(25, e.beta - 50)) / 25;
+      proxyBg.style.transform = `translate(calc(-50% + ${-tx * 12}px), calc(-50% + ${-ty * 12}px))`;
+      proxyFg.style.transform = `translate(${tx * 6}px, ${ty * 6}px)`;
+    });
+  }
+
+  // ============================
+  // PARTICLES (background)
+  // ============================
+  const pCanvas = document.getElementById('particleCanvas');
+  const pCtx = pCanvas.getContext('2d');
+  let particles = [];
+
+  function resizeParticles() {
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+  }
+  resizeParticles();
+  window.addEventListener('resize', resizeParticles);
+
+  const pCount = Math.min(50, Math.floor(window.innerWidth * window.innerHeight / 18000));
+  for (let i = 0; i < pCount; i++) {
+    particles.push({
+      x: Math.random() * pCanvas.width,
+      y: Math.random() * pCanvas.height,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      size: Math.random() * 1.8 + 0.3,
+      color: ['#00d4ff','#ff2040','#e8d44d','#e0e0e0'][Math.floor(Math.random()*4)],
+      alpha: Math.random() * 0.2 + 0.03,
+    });
+  }
+
+  function drawParticles() {
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = pCanvas.width;
+      if (p.x > pCanvas.width) p.x = 0;
+      if (p.y < 0) p.y = pCanvas.height;
+      if (p.y > pCanvas.height) p.y = 0;
+      pCtx.globalAlpha = p.alpha;
+      pCtx.fillStyle = p.color;
+      pCtx.fillRect(p.x|0, p.y|0, p.size, p.size);
+    }
+    pCtx.globalAlpha = 1;
+    requestAnimationFrame(drawParticles);
+  }
+  drawParticles();
+
+  // ============================
+  // DISINTEGRATION on typing
+  // ============================
+  const dCanvas = document.getElementById('disintCanvas');
+  const dCtx = dCanvas.getContext('2d');
+  let disintParticles = [];
+
+  function resizeDisint() {
+    dCanvas.width = window.innerWidth;
+    dCanvas.height = window.innerHeight;
+  }
+  resizeDisint();
+  window.addEventListener('resize', resizeDisint);
+
+  function spawnDisint() {
+    const rect = input.getBoundingClientRect();
+    // Spawn from right edge of input (where cursor is typing)
+    const ox = rect.right - 10 + (Math.random() - 0.5) * 20;
+    const oy = rect.top + rect.height / 2 + (Math.random() - 0.5) * rect.height * 0.6;
+    const colors = ['#00d4ff', '#ff2040', '#e8d44d', '#e0e0e0'];
+    for (let i = 0; i < 6; i++) {
+      disintParticles.push({
+        x: ox, y: oy,
+        vx: (Math.random() - 0.3) * 4,
+        vy: (Math.random() - 0.5) * 3,
+        life: 1,
+        decay: 0.015 + Math.random() * 0.02,
+        size: Math.random() * 3 + 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+  }
+
+  input.addEventListener('input', () => {
+    spawnDisint();
+    // Audio reactivity: subtle volume bump on typing
+    if (audioStarted) {
+      audio.volume = Math.min(0.25, audio.volume + 0.02);
+      setTimeout(() => { audio.volume = 0.15; }, 300);
+    }
+  });
+
+  function drawDisint() {
+    dCtx.clearRect(0, 0, dCanvas.width, dCanvas.height);
+    for (let i = disintParticles.length - 1; i >= 0; i--) {
+      const p = disintParticles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.05; // gravity
+      p.life -= p.decay;
+      if (p.life <= 0) { disintParticles.splice(i, 1); continue; }
+      dCtx.globalAlpha = p.life;
+      dCtx.fillStyle = p.color;
+      dCtx.fillRect(p.x|0, p.y|0, p.size, p.size);
+    }
+    dCtx.globalAlpha = 1;
+    requestAnimationFrame(drawDisint);
+  }
+  drawDisint();
+
+  // ============================
+  // REACTIVE TYPOGRAPHY (button proximity)
+  // ============================
+  if (isFine) {
+    const letters = document.querySelectorAll('.btn-letter');
+    document.addEventListener('mousemove', (e) => {
+      letters.forEach(letter => {
+        const rect = letter.getBoundingClientRect();
+        const lx = rect.left + rect.width / 2;
+        const ly = rect.top + rect.height / 2;
+        const dist = Math.sqrt((e.clientX - lx) ** 2 + (e.clientY - ly) ** 2);
+        if (dist < 80) {
+          const intensity = 1 - dist / 80;
+          const dx = (e.clientX - lx) * intensity * -0.15;
+          const dy = (e.clientY - ly) * intensity * -0.15;
+          letter.style.transform = `translate(${dx}px, ${dy}px)`;
+          letter.style.color = `rgba(0, 212, 255, ${0.3 + intensity * 0.7})`;
+          letter.style.textShadow = `0 0 ${intensity * 12}px var(--cyan)`;
+        } else {
+          letter.style.transform = '';
+          letter.style.color = '';
+          letter.style.textShadow = '';
+        }
+      });
+    });
+  }
+
+  // ============================
+  // GLITCH on proxy (random)
+  // ============================
+  const proxyImgFg = proxyFg.querySelector('img');
+  setInterval(() => {
+    if (Math.random() > 0.93) {
+      const r = Math.random();
+      if (r < 0.4) {
+        proxyImgFg.style.filter = 'contrast(1.4) brightness(1.15) hue-rotate(15deg)';
+      } else {
+        proxyImgFg.style.clipPath = `inset(${Math.random()*35}% 0 ${Math.random()*35}% 0)`;
+      }
+      setTimeout(() => {
+        proxyImgFg.style.filter = 'contrast(1.1) brightness(0.95)';
+        proxyImgFg.style.clipPath = 'none';
+      }, 70 + Math.random() * 100);
+    }
+  }, 350);
+
+  // ============================
+  // PASSWORD CHECK
+  // ============================
+  function createGlitchBars() {
+    for (let i = 0; i < 10; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'glitch-bar';
+      bar.style.cssText = `top:${Math.random()*100}%;left:0;width:${Math.random()*70+30}%;opacity:${Math.random()*0.5+0.2}`;
+      transitionOverlay.appendChild(bar);
+      setTimeout(() => { bar.style.opacity = '0'; }, 150 + Math.random() * 350);
+    }
+  }
+
+  function check() {
+    const val = input.value.trim();
+    if (!val) return;
+
+    if (val === PASSWORD) {
+      // Audio swell
+      if (audioStarted) {
+        audio.volume = 0.35;
+        setTimeout(() => { audio.volume = 0.1; }, 1500);
+        setTimeout(() => { audio.pause(); }, 3500);
+      }
+
+      loginContainer.style.transition = 'opacity 0.2s';
+      loginContainer.style.opacity = '0';
+
+      setTimeout(() => {
+        loginContainer.classList.add('hidden');
+        transitionOverlay.classList.add('active');
+        transitionOverlay.classList.add('glitching');
+        createGlitchBars();
+      }, 300);
+
+      setTimeout(() => {
+        transitionOverlay.classList.remove('glitching');
+        transitionText.classList.add('show');
+      }, 1000);
+
+      setTimeout(() => {
+        transitionOverlay.style.transition = 'opacity 0.8s';
+        transitionOverlay.style.opacity = '0';
+      }, 3000);
+
+      setTimeout(() => {
+        transitionOverlay.style.display = 'none';
+        videoContainer.classList.add('active');
+        videoPlayer.play().catch(() => {});
+      }, 3800);
+
+    } else {
+      attempts++;
+      inputArea.classList.add('error');
+      msg.classList.add('visible');
+      input.value = '';
+      input.focus();
+
+      // Audio react to error
+      if (audioStarted) {
+        audio.volume = 0.3;
+        setTimeout(() => { audio.volume = 0.15; }, 500);
+      }
+
+      if (attempts >= 5) msg.textContent = 'proxy no te reconoce';
+      else if (attempts >= 3) msg.textContent = 'palabra incorrecta';
+
+      setTimeout(() => { inputArea.classList.remove('error'); }, 600);
+      setTimeout(() => { msg.classList.remove('visible'); }, 2500);
+    }
+  }
+
+  btn.addEventListener('click', check);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
+  input.focus();
+</script>
+
+</body>
+</html>
